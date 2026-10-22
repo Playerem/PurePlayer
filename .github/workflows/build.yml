@@ -19,12 +19,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Create Minimal Android Project
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Complete Project Files
         run: |
           mkdir -p app/src/main/java/com/example/pureplayer
           mkdir -p app/src/main/res/values
 
-          # 1. settings.gradle.kts
           cat << 'EOF' > settings.gradle.kts
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -32,7 +37,6 @@ jobs:
           include(":app")
           EOF
 
-          # 2. build.gradle.kts (Project)
           cat << 'EOF' > build.gradle.kts
           plugins {
               id("com.android.application") version "8.2.2" apply false
@@ -40,13 +44,11 @@ jobs:
           }
           EOF
 
-          # 3. gradle.properties
           cat << 'EOF' > gradle.properties
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           EOF
 
-          # 4. app/build.gradle.kts
           cat << 'EOF' > app/build.gradle.kts
           plugins {
               id("com.android.application")
@@ -75,7 +77,6 @@ jobs:
           }
           EOF
 
-          # 5. AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -91,7 +92,6 @@ jobs:
           </manifest>
           EOF
 
-          # 6. MainActivity.kt (English UI & Device Detector)
           cat << 'EOF' > app/src/main/java/com/example/pureplayer/MainActivity.kt
           package com.example.pureplayer
 
@@ -164,7 +164,7 @@ jobs:
                       ) {
                           Text("Active Audio Device:", color = Color.LightGray, fontSize = 13.sp)
                           Spacer(modifier = Modifier.height(6.dp))
-                          Text(status, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                          Text(status, color = Color.White, fontSize: 18.sp, fontWeight = FontWeight.Bold)
                           Spacer(modifier = Modifier.height(12.dp))
                           Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
                               Text(mode, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
@@ -175,8 +175,10 @@ jobs:
           }
           EOF
 
-      - name: Build APK
-        run: ./gradlew assembleDebug
+      - name: Build APK using Gradle Wrapper generation
+        run: |
+          gradle wrapper --gradle-version 8.6
+          ./gradlew assembleDebug
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
