@@ -21,9 +21,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        with:
+          accept-android-sdk-licences: true
 
       - name: Generate Complete Project Files
         run: |
@@ -164,7 +163,7 @@ jobs:
                       ) {
                           Text("Active Audio Device:", color = Color.LightGray, fontSize = 13.sp)
                           Spacer(modifier = Modifier.height(6.dp))
-                          Text(status, color = Color.White, fontSize: 18.sp, fontWeight = FontWeight.Bold)
+                          Text(status, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                           Spacer(modifier = Modifier.height(12.dp))
                           Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
                               Text(mode, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
