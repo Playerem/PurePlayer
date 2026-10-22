@@ -19,111 +19,69 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Generate Project Structure (English UI + Persian Lyrics Ready)
+      - name: Create Minimal Android Project
         run: |
+          mkdir -p app/src/main/java/com/example/pureplayer
+          mkdir -p app/src/main/res/values
+
+          # 1. settings.gradle.kts
           cat << 'EOF' > settings.gradle.kts
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           rootProject.name = "PurePlayer"
           include(":app")
           EOF
 
+          # 2. build.gradle.kts (Project)
           cat << 'EOF' > build.gradle.kts
           plugins {
-              id("com.android.application") version "8.5.0" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.23" apply false
+              id("com.android.application") version "8.2.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
           }
           EOF
 
+          # 3. gradle.properties
           cat << 'EOF' > gradle.properties
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
-          kotlin.code.style=official
-          android.nonTransitiveRClass=true
           EOF
 
-          mkdir -p app/src/main/java/com/example/pureplayer
-          mkdir -p app/src/main/res/values
-
+          # 4. app/build.gradle.kts
           cat << 'EOF' > app/build.gradle.kts
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
           }
-
           android {
               namespace = "com.example.pureplayer"
               compileSdk = 34
-
               defaultConfig {
                   applicationId = "com.example.pureplayer"
                   minSdk = 29
                   targetSdk = 34
                   versionCode = 1
-                  versionName = "1.0-Phase1"
+                  versionName = "1.0"
               }
-
-              buildFeatures {
-                  compose = true
-              }
-              composeOptions {
-                kotlinCompilerExtensionVersion = "1.5.11"
-              }
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
+              buildFeatures { compose = true }
+              composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
+              kotlinOptions { jvmTarget = "17" }
           }
-
           dependencies {
-              implementation(platform("androidx.compose:compose-bom:2024.04.01"))
+              implementation(platform("androidx.compose:compose-bom:2024.02.00"))
               implementation("androidx.compose.ui:ui")
               implementation("androidx.compose.material3:material3")
-              implementation("androidx.activity:activity-compose:1.9.0")
+              implementation("androidx.activity:activity-compose:1.8.2")
               implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-
-              val media3Version = "1.3.1"
-              implementation("androidx.media3:media3-exoplayer:$media3Version")
-              implementation("androidx.media3:media3-session:$media3Version")
-              implementation("androidx.media3:media3-ui:$media3Version")
           }
           EOF
 
+          # 5. AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
-              <application
-                  android:allowBackup="true"
-                  android:label="PurePlayer"
-                  android:supportsRtl="true"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+              <application android:label="PurePlayer" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -133,6 +91,7 @@ jobs:
           </manifest>
           EOF
 
+          # 6. MainActivity.kt (English UI & Device Detector)
           cat << 'EOF' > app/src/main/java/com/example/pureplayer/MainActivity.kt
           package com.example.pureplayer
 
@@ -159,125 +118,56 @@ jobs:
           class MainActivity : ComponentActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
+                  val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                   setContent {
-                      MaterialTheme(
-                          colorScheme = darkColorScheme(
-                              background = Color.Black,
-                              surface = Color(0xFF121212),
-                              primary = Color(0xFF00E5FF)
-                          )
-                      ) {
-                          PurePlayerScreen(audioManager)
+                      MaterialTheme(colorScheme = darkColorScheme(background = Color.Black, surface = Color(0xFF121212), primary = Color(0xFF00E5FF))) {
+                          AudioRadarScreen(am)
                       }
                   }
               }
           }
 
           @Composable
-          fun PurePlayerScreen(audioManager: AudioManager) {
-              var deviceName by remember { mutableStateOf("Scanning audio devices...") }
-              var outputMode by remember { mutableStateOf("Standard Mixer") }
-              var badgeColor by remember { mutableStateOf(Color.Gray) }
+          fun AudioRadarScreen(am: AudioManager) {
+              var status by remember { mutableStateOf("Scanning audio devices...") }
+              var mode by remember { mutableStateOf("Standard Mixer") }
+              var color by remember { mutableStateOf(Color.Gray) }
 
               DisposableEffect(Unit) {
-                  val updateAudioStatus = {
-                      val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                      val usbDac = outputs.firstOrNull {
-                          it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
-                          it.type == AudioDeviceInfo.TYPE_USB_HEADSET
-                      }
-                      val btAudio = outputs.firstOrNull {
-                          it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                          it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
-                      }
-
+                  val update = {
+                      val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                      val bt = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
+                      val wired = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_DEVICE }
                       when {
-                          usbDac != null -> {
-                              deviceName = usbDac.productName?.toString() ?: "USB DAC Connected"
-                              outputMode = "USB Direct / Bit-Perfect Ready"
-                              badgeColor = Color(0xFF00E676)
-                          }
-                          btAudio != null -> {
-                              deviceName = btAudio.productName?.toString() ?: "Bluetooth Audio"
-                              outputMode = "Bluetooth Hi-Res (LDAC/A2DP)"
-                              badgeColor = Color(0xFF00B0FF)
-                          }
-                          else -> {
-                              deviceName = "Internal Speaker / Headset"
-                              outputMode = "Standard Audio Route"
-                              badgeColor = Color(0xFFFF9100)
-                          }
+                          bt != null -> { status = bt.productName?.toString() ?: "Bluetooth Device"; mode = "Hi-Res Bluetooth Output (LDAC)"; color = Color(0xFF00B0FF) }
+                          wired != null -> { status = wired.productName?.toString() ?: "Wired Headset"; mode = "Direct Audio Output Ready"; color = Color(0xFF00E676) }
+                          else -> { status = "Internal Speaker / Default"; mode = "Standard Route"; color = Color(0xFFFF9100) }
                       }
                   }
-
-                  val callback = object : AudioDeviceCallback() {
-                      override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) = updateAudioStatus()
-                      override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = updateAudioStatus()
+                  val cb = object : AudioDeviceCallback() {
+                      override fun onAudioDevicesAdded(d: Array<out AudioDeviceInfo>?) = update()
+                      override fun onAudioDevicesRemoved(d: Array<out AudioDeviceInfo>?) = update()
                   }
-
-                  audioManager.registerAudioDeviceCallback(callback, null)
-                  updateAudioStatus()
-
-                  onDispose {
-                      audioManager.unregisterAudioDeviceCallback(callback)
-                  }
+                  am.registerAudioDeviceCallback(cb, null)
+                  update()
+                  onDispose { am.unregisterAudioDeviceCallback(cb) }
               }
 
-              Box(
-                  modifier = Modifier
-                      .fillMaxSize()
-                      .background(Color.Black)
-                      .padding(24.dp),
-                  contentAlignment = Alignment.Center
-              ) {
-                  Column(
-                      horizontalAlignment = Alignment.CenterHorizontally,
-                      verticalArrangement = Arrangement.spacedBy(16.dp)
-                  ) {
-                      Text(
-                          text = "PurePlayer",
-                          color = Color.White,
-                          fontSize = 32.sp,
-                          fontWeight = FontWeight.Bold
-                      )
-                      Text(
-                          text = "Phase 1: Hardware Audio Radar (AMOLED)",
-                          color = Color.Gray,
-                          fontSize = 13.sp
-                      )
-
+              Box(modifier = Modifier.fillMaxSize().background(Color.Black).padding(24.dp), contentAlignment = Alignment.Center) {
+                  Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                      Text("PurePlayer", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                      Text("AMOLED Interface & Audio Radar", color = Color.Gray, fontSize = 13.sp)
                       Spacer(modifier = Modifier.height(16.dp))
-
                       Column(
-                          modifier = Modifier
-                              .fillMaxWidth()
-                              .background(Color(0xFF0D0D0D), RoundedCornerShape(20.dp))
-                              .border(1.dp, badgeColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                              .padding(20.dp),
+                          modifier = Modifier.fillMaxWidth().background(Color(0xFF0D0D0D), RoundedCornerShape(20.dp)).border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(20.dp)).padding(20.dp),
                           horizontalAlignment = Alignment.CenterHorizontally
                       ) {
-                          Text(text = "Active Audio Output:", color = Color.LightGray, fontSize = 13.sp)
+                          Text("Active Audio Device:", color = Color.LightGray, fontSize = 13.sp)
                           Spacer(modifier = Modifier.height(6.dp))
-                          Text(
-                              text = deviceName,
-                              color = Color.White,
-                              fontSize = 18.sp,
-                              fontWeight = FontWeight.Bold
-                          )
+                          Text(status, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                           Spacer(modifier = Modifier.height(12.dp))
-                          Surface(
-                              color = badgeColor.copy(alpha = 0.15f),
-                              shape = RoundedCornerShape(50)
-                          ) {
-                              Text(
-                                  text = outputMode,
-                                  color = badgeColor,
-                                  fontSize = 12.sp,
-                                  fontWeight = FontWeight.Medium,
-                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                              )
+                          Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
+                              Text(mode, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                           }
                       }
                   }
@@ -285,11 +175,11 @@ jobs:
           }
           EOF
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PurePlayer-Phase1-APK
+          name: PurePlayer-APK
           path: app/build/outputs/apk/debug/app-debug.apk
