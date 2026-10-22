@@ -21,163 +21,164 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licences: true
 
-      - name: Generate Complete Project Files
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.6'
+
+      - name: Generate Project Files
         run: |
           mkdir -p app/src/main/java/com/example/pureplayer
           mkdir -p app/src/main/res/values
 
-          cat << 'EOF' > settings.gradle.kts
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name = "PurePlayer"
-          include(":app")
-          EOF
+          printf '%s\n' \
+            'pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }' \
+            'dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }' \
+            'rootProject.name = "PurePlayer"' \
+            'include(":app")' \
+            > settings.gradle.kts
 
-          cat << 'EOF' > build.gradle.kts
-          plugins {
-              id("com.android.application") version "8.2.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
-          }
-          EOF
+          printf '%s\n' \
+            'plugins {' \
+            '    id("com.android.application") version "8.2.2" apply false' \
+            '    id("org.jetbrains.kotlin.android") version "1.9.22" apply false' \
+            '}' \
+            > build.gradle.kts
 
-          cat << 'EOF' > gradle.properties
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          EOF
+          printf '%s\n' \
+            'org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8' \
+            'android.useAndroidX=true' \
+            > gradle.properties
 
-          cat << 'EOF' > app/build.gradle.kts
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-          android {
-              namespace = "com.example.pureplayer"
-              compileSdk = 34
-              defaultConfig {
-                  applicationId = "com.example.pureplayer"
-                  minSdk = 29
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-              buildFeatures { compose = true }
-              composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
-              kotlinOptions { jvmTarget = "17" }
-          }
-          dependencies {
-              implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-              implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.material3:material3")
-              implementation("androidx.activity:activity-compose:1.8.2")
-              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-          }
-          EOF
+          printf '%s\n' \
+            'plugins {' \
+            '    id("com.android.application")' \
+            '    id("org.jetbrains.kotlin.android")' \
+            '}' \
+            'android {' \
+            '    namespace = "com.example.pureplayer"' \
+            '    compileSdk = 34' \
+            '    defaultConfig {' \
+            '        applicationId = "com.example.pureplayer"' \
+            '        minSdk = 29' \
+            '        targetSdk = 34' \
+            '        versionCode = 1' \
+            '        versionName = "1.0"' \
+            '    }' \
+            '    buildFeatures { compose = true }' \
+            '    composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }' \
+            '    kotlinOptions { jvmTarget = "17" }' \
+            '}' \
+            'dependencies {' \
+            '    implementation(platform("androidx.compose:compose-bom:2024.02.00"))' \
+            '    implementation("androidx.compose.ui:ui")' \
+            '    implementation("androidx.compose.material3:material3")' \
+            '    implementation("androidx.activity:activity-compose:1.8.2")' \
+            '    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")' \
+            '}' \
+            > app/build.gradle.kts
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <application android:label="PurePlayer" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="utf-8"?>' \
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/android">' \
+            '    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' \
+            '    <application android:label="PurePlayer" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">' \
+            '        <activity android:name=".MainActivity" android:exported="true">' \
+            '            <intent-filter>' \
+            '                <action android:name="android.intent.action.MAIN" />' \
+            '                <category android:name="android.intent.category.LAUNCHER" />' \
+            '            </intent-filter>' \
+            '        </activity>' \
+            '    </application>' \
+            '</manifest>' \
+            > app/src/main/AndroidManifest.xml
 
-          cat << 'EOF' > app/src/main/java/com/example/pureplayer/MainActivity.kt
-          package com.example.pureplayer
+          printf '%s\n' \
+            'package com.example.pureplayer' \
+            '' \
+            'import android.content.Context' \
+            'import android.media.AudioDeviceCallback' \
+            'import android.media.AudioDeviceInfo' \
+            'import android.media.AudioManager' \
+            'import android.os.Bundle' \
+            'import androidx.activity.ComponentActivity' \
+            'import androidx.activity.compose.setContent' \
+            'import androidx.compose.foundation.background' \
+            'import androidx.compose.foundation.border' \
+            'import androidx.compose.foundation.layout.*' \
+            'import androidx.compose.foundation.shape.RoundedCornerShape' \
+            'import androidx.compose.material3.*' \
+            'import androidx.compose.runtime.*' \
+            'import androidx.compose.ui.Alignment' \
+            'import androidx.compose.ui.Modifier' \
+            'import androidx.compose.ui.graphics.Color' \
+            'import androidx.compose.ui.text.font.FontWeight' \
+            'import androidx.compose.ui.unit.dp' \
+            'import androidx.compose.ui.unit.sp' \
+            '' \
+            'class MainActivity : ComponentActivity() {' \
+            '    override fun onCreate(savedInstanceState: Bundle?) {' \
+            '        super.onCreate(savedInstanceState)' \
+            '        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager' \
+            '        setContent {' \
+            '            MaterialTheme(colorScheme = darkColorScheme(background = Color.Black, surface = Color(0xFF121212), primary = Color(0xFF00E5FF))) {' \
+            '                AudioRadarScreen(am)' \
+            '            }' \
+            '        }' \
+            '    }' \
+            '}' \
+            '' \
+            '@Composable' \
+            'fun AudioRadarScreen(am: AudioManager) {' \
+            '    var status by remember { mutableStateOf("Scanning audio devices...") }' \
+            '    var mode by remember { mutableStateOf("Standard Mixer") }' \
+            '    var color by remember { mutableStateOf(Color.Gray) }' \
+            '' \
+            '    DisposableEffect(Unit) {' \
+            '        val update = {' \
+            '            val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)' \
+            '            val bt = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }' \
+            '            val wired = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_DEVICE }' \
+            '            when {' \
+            '                bt != null -> { status = bt.productName?.toString() ?: "Bluetooth Device"; mode = "Hi-Res Bluetooth Output (LDAC)"; color = Color(0xFF00B0FF) }' \
+            '                wired != null -> { status = wired.productName?.toString() ?: "Wired Headset"; mode = "Direct Audio Output Ready"; color = Color(0xFF00E676) }' \
+            '                else -> { status = "Internal Speaker / Default"; mode = "Standard Route"; color = Color(0xFFFF9100) }' \
+            '            }' \
+            '        }' \
+            '        val cb = object : AudioDeviceCallback() {' \
+            '            override fun onAudioDevicesAdded(d: Array<out AudioDeviceInfo>?) = update()' \
+            '            override fun onAudioDevicesRemoved(d: Array<out AudioDeviceInfo>?) = update()' \
+            '        }' \
+            '        am.registerAudioDeviceCallback(cb, null)' \
+            '        update()' \
+            '        onDispose { am.unregisterAudioDeviceCallback(cb) }' \
+            '    }' \
+            '' \
+            '    Box(modifier = Modifier.fillMaxSize().background(Color.Black).padding(24.dp), contentAlignment = Alignment.Center) {' \
+            '        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {' \
+            '            Text("PurePlayer", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)' \
+            '            Text("AMOLED Interface & Audio Radar", color = Color.Gray, fontSize = 13.sp)' \
+            '            Spacer(modifier = Modifier.height(16.dp))' \
+            '            Column(' \
+            '                modifier = Modifier.fillMaxWidth().background(Color(0xFF0D0D0D), RoundedCornerShape(20.dp)).border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(20.dp)).padding(20.dp),' \
+            '                horizontalAlignment = Alignment.CenterHorizontally' \
+            '            ) {' \
+            '                Text("Active Audio Device:", color = Color.LightGray, fontSize = 13.sp)' \
+            '                Spacer(modifier = Modifier.height(6.dp))' \
+            '                Text(status, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)' \
+            '                Spacer(modifier = Modifier.height(12.dp))' \
+            '                Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {' \
+            '                    Text(mode, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))' \
+            '                }' \
+            '            }' \
+            '        }' \
+            '    }' \
+            '}' \
+            > app/src/main/java/com/example/pureplayer/MainActivity.kt
 
-          import android.content.Context
-          import android.media.AudioDeviceCallback
-          import android.media.AudioDeviceInfo
-          import android.media.AudioManager
-          import android.os.Bundle
-          import androidx.activity.ComponentActivity
-          import androidx.activity.compose.setContent
-          import androidx.compose.foundation.background
-          import androidx.compose.foundation.border
-          import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.material3.*
-          import androidx.compose.runtime.*
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.graphics.Color
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.unit.dp
-          import androidx.compose.ui.unit.sp
-
-          class MainActivity : ComponentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                  setContent {
-                      MaterialTheme(colorScheme = darkColorScheme(background = Color.Black, surface = Color(0xFF121212), primary = Color(0xFF00E5FF))) {
-                          AudioRadarScreen(am)
-                      }
-                  }
-              }
-          }
-
-          @Composable
-          fun AudioRadarScreen(am: AudioManager) {
-              var status by remember { mutableStateOf("Scanning audio devices...") }
-              var mode by remember { mutableStateOf("Standard Mixer") }
-              var color by remember { mutableStateOf(Color.Gray) }
-
-              DisposableEffect(Unit) {
-                  val update = {
-                      val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                      val bt = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
-                      val wired = outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_DEVICE }
-                      when {
-                          bt != null -> { status = bt.productName?.toString() ?: "Bluetooth Device"; mode = "Hi-Res Bluetooth Output (LDAC)"; color = Color(0xFF00B0FF) }
-                          wired != null -> { status = wired.productName?.toString() ?: "Wired Headset"; mode = "Direct Audio Output Ready"; color = Color(0xFF00E676) }
-                          else -> { status = "Internal Speaker / Default"; mode = "Standard Route"; color = Color(0xFFFF9100) }
-                      }
-                  }
-                  val cb = object : AudioDeviceCallback() {
-                      override fun onAudioDevicesAdded(d: Array<out AudioDeviceInfo>?) = update()
-                      override fun onAudioDevicesRemoved(d: Array<out AudioDeviceInfo>?) = update()
-                  }
-                  am.registerAudioDeviceCallback(cb, null)
-                  update()
-                  onDispose { am.unregisterAudioDeviceCallback(cb) }
-              }
-
-              Box(modifier = Modifier.fillMaxSize().background(Color.Black).padding(24.dp), contentAlignment = Alignment.Center) {
-                  Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                      Text("PurePlayer", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                      Text("AMOLED Interface & Audio Radar", color = Color.Gray, fontSize = 13.sp)
-                      Spacer(modifier = Modifier.height(16.dp))
-                      Column(
-                          modifier = Modifier.fillMaxWidth().background(Color(0xFF0D0D0D), RoundedCornerShape(20.dp)).border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(20.dp)).padding(20.dp),
-                          horizontalAlignment = Alignment.CenterHorizontally
-                      ) {
-                          Text("Active Audio Device:", color = Color.LightGray, fontSize = 13.sp)
-                          Spacer(modifier = Modifier.height(6.dp))
-                          Text(status, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                          Spacer(modifier = Modifier.height(12.dp))
-                          Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
-                              Text(mode, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
-                          }
-                      }
-                  }
-              }
-          }
-          EOF
-
-      - name: Build APK using Gradle Wrapper generation
-        run: |
-          gradle wrapper --gradle-version 8.6
-          ./gradlew assembleDebug
+      - name: Build APK
+        run: gradle assembleDebug
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
