@@ -1,0 +1,305 @@
+name: Build PurePlayer APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Generate Project Structure (Phase 1)
+        run: |
+          # ۱. ساخت فایل settings.gradle.kts
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "PurePlayer"
+          include(":app")
+          EOF
+
+          # ۲. ساخت فایل build.gradle.kts اصلی
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+
+          # ۳. ساخت فایل gradle.properties
+          cat << 'EOF' > gradle.properties
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          # ۴. ساخت پوشه‌های اپلیکیشن
+          mkdir -p app/src/main/java/com/example/pureplayer/audio
+          mkdir -p app/src/main/res/values
+
+          # ۵. ساخت فایل app/build.gradle.kts
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.example.pureplayer"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.example.pureplayer"
+                  minSdk = 29
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0-Phase1"
+              }
+
+              buildFeatures {
+                  compose = true
+              }
+              composeOptions {
+                  kotlinCompilerExtensionVersion = "1.5.14"
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+
+          dependencies {
+              implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.activity:activity-compose:1.9.0")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
+
+              val media3Version = "1.3.1"
+              implementation("androidx.media3:media3-exoplayer:$media3Version")
+              implementation("androidx.media3:media3-session:$media3Version")
+              implementation("androidx.media3:media3-ui:$media3Version")
+          }
+          EOF
+
+          # ۶. ساخت فایل AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+              <application
+                  android:allowBackup="true"
+                  android:label="PurePlayer"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # ۷. ساخت کد اصلی برنامه و تشخیص‌دهنده هوشمند Snowsky و Liberty 4 NC
+          cat << 'EOF' > app/src/main/java/com/example/pureplayer/MainActivity.kt
+          package com.example.pureplayer
+
+          import android.content.Context
+          import android.media.AudioDeviceCallback
+          import android.media.AudioDeviceInfo
+          import android.media.AudioManager
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.border
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+                  setContent {
+                      MaterialTheme(
+                          colorScheme = darkColorScheme(
+                              background = Color.Black,
+                              surface = Color(0xFF121212),
+                              primary = Color(0xFF00E5FF)
+                          )
+                      ) {
+                          PurePlayerPhase1Screen(audioManager)
+                      }
+                  }
+              }
+          }
+
+          @Composable
+          fun PurePlayerPhase1Screen(audioManager: AudioManager) {
+              var deviceName by remember { mutableStateOf("در حال بررسی...") }
+              var outputMode by remember { mutableStateOf("Standard Mixer") }
+              var badgeColor by remember { mutableStateOf(Color.Gray) }
+
+              DisposableEffect(Unit) {
+                  val updateAudioStatus = {
+                      val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                      val usbDac = outputs.firstOrNull {
+                          it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                          it.type == AudioDeviceInfo.TYPE_USB_HEADSET
+                      }
+                      val btAudio = outputs.firstOrNull {
+                          it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                          it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+                      }
+
+                      when {
+                          usbDac != null -> {
+                              deviceName = usbDac.productName?.toString() ?: "USB DAC (Snowsky)"
+                              outputMode = "USB Direct / Bit-Perfect Ready (32-bit/384kHz)"
+                              badgeColor = Color(0xFF00E676) // سبز نئونی برای حالت Hi-Res سیمی
+                          }
+                          btAudio != null -> {
+                              deviceName = btAudio.productName?.toString() ?: "Bluetooth (Liberty 4 NC)"
+                              outputMode = "Bluetooth Hi-Res Float32 (LDAC Ready)"
+                              badgeColor = Color(0xFF00B0FF) // آبی نئونی برای حالت بلوتوث
+                          }
+                          else -> {
+                              deviceName = "اسپیکر داخلی Poco F5"
+                              outputMode = "Internal Audio"
+                              badgeColor = Color(0xFFFF9100)
+                          }
+                      }
+                  }
+
+                  val callback = object : AudioDeviceCallback() {
+                      override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) = updateAudioStatus()
+                      override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = updateAudioStatus()
+                  }
+
+                  audioManager.registerAudioDeviceCallback(callback, null)
+                  updateAudioStatus()
+
+                  onDispose {
+                      audioManager.unregisterAudioDeviceCallback(callback)
+                  }
+              }
+
+              Box(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(Color.Black)
+                      .padding(24.dp),
+                  contentAlignment = Alignment.Center
+              ) {
+                  Column(
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      verticalArrangement = Arrangement.spacedBy(16.dp)
+                  ) {
+                      Text(
+                          text = "PurePlayer",
+                          color = Color.White,
+                          fontSize = 32.sp,
+                          fontWeight = FontWeight.Bold
+                      )
+                      Text(
+                          text = "فاز ۱: رادار سخت‌افزار صوتی (AMOLED Mode)",
+                          color = Color.Gray,
+                          fontSize = 14.sp
+                      )
+
+                      Spacer(modifier = Modifier.height(16.dp))
+
+                      // کارت شیشه‌ای وضعیت خروجی صدا
+                      Column(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .background(Color(0xFF0D0D0D), RoundedCornerShape(20.dp))
+                              .border(1.dp, badgeColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                              .padding(20.dp),
+                          horizontalAlignment = Alignment.CenterHorizontally
+                      ) {
+                          Text(text = "خروجی صدای فعال:", color = Color.LightGray, fontSize = 13.sp)
+                          Spacer(modifier = Modifier.height(6.dp))
+                          Text(
+                              text = deviceName,
+                              color = Color.White,
+                              fontSize = 20.sp,
+                              fontWeight = FontWeight.Bold
+                          )
+                          Spacer(modifier = Modifier.height(12.dp))
+                          Surface(
+                              color = badgeColor.copy(alpha = 0.15f),
+                              shape = RoundedCornerShape(50)
+                          ) {
+                              Text(
+                                  text = outputMode,
+                                  color = badgeColor,
+                                  fontSize = 12.sp,
+                                  fontWeight = FontWeight.Medium,
+                                  modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PurePlayer-Phase1-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
